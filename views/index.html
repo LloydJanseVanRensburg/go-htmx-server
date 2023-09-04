@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basic Todo App</title>
+    <link rel="stylesheet" href="/public/css/styles.css">
+    <script src="https://unpkg.com/htmx.org@1.9.5" integrity="sha384-xcuj3WpfgjlKF+FXhSQFQ0ZNr39ln+hwjN3npfM9VBnUskLolQAcN80McRIVOPuO" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">Todo App</h1>
+
+        <form class="form" hx-post="/todos" hx-target=".todo-list" hx-swap="beforeend">
+            <label for="todo">Enter your todo</label>
+            <input type="text" id="todo" name="title" required>
+
+            <button type="submit">Add</button>
+        </form>
+
+        <div class="todo-list">
+            {{range .todos}}
+                <p>{{.Title}}</p>
+            {{end}}
+        </div>
+    </div>
+</body>
+</html>

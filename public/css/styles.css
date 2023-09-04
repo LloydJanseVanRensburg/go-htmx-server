@@ -1,0 +1,46 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial,sans-serif;
+}
+
+.title {
+    text-align: center;
+    padding: 2rem;
+    background-color: #f4f4f4;
+}
+
+.form {
+    max-width: 400px;
+    margin: 1rem auto;
+    display: flex;
+    flex-direction: column;
+
+    & label {
+        margin-bottom: 8px;
+    }
+
+    & input {
+        margin-bottom: 16px;
+        padding: 8px;
+    }
+
+    & button {
+        border: none;
+        padding: 9px;
+        background-color: #000;
+        color: #fff;
+    }
+}
+
+.todo-list {
+    max-width: 400px;
+    margin: auto;
+    background-color: #f4f4f4;
+    padding: 1rem;
+
+    & p {
+        padding: 8px 0;
+    }
+}

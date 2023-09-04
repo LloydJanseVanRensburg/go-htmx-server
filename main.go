@@ -1,57 +1,149 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"net/http"
+	"os"
+
 	"github.com/gin-gonic/gin"
+	_ "github.com/mattn/go-sqlite3"
 )
 
-type album struct {
-	ID 		string `json:"id"`
-	Title 	string `json:"title"`
-	Artist 	string `json:"artist"`
-	Price 	float64 `json:"price"`
+type Todo struct {
+	ID int `json:"id"`
+	CreatedAt string
+	UpdatedAt string
+	Title string `json:"title"`
+	Complete bool `json:"complete"`
 }
 
-var albums = []album{
-	{ID: "1", Title: "Blue Train", Artist: "John Coltrane", Price: 56.99},
-	{ID: "2", Title: "Jeru", Artist: "Gerry Mulligan", Price: 17.99},
-	{ID: "3", Title: "Sarah Vaughan and Clifford Brown", Artist: "Sarah Vaughan", Price: 39.99},
-}
+var db *sql.DB
 
 func main() {
-	router := gin.Default()
-	router.GET("/albums", getAlbums)
-	router.GET("/albums/:id", getAlbumByID)
-	router.POST("/albums", postAlbums)
+	var err error
+	db, err = sql.Open("sqlite3", "todos.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
 
-	router.Run("127.0.0.1:3000")
+	createTodosTableQuery, err := loadQuery("createTable.sql");
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createTodosTableQuery)
+	if err != nil {
+		panic(err)
+	}
+
+	r := gin.Default()
+	r.LoadHTMLGlob("views/*")
+	r.Static("/public", "./public");
+
+	r.GET("/", getIndex)
+	r.POST("/todos", postAddTodo)
+	r.PUT("/todos/:id", putTodoById)
+	r.DELETE("/todos/:id", deleteTodoById)
+
+	r.Run("127.0.0.1:3000")
 }
 
-func getAlbums(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, albums)
+func getIndex(c *gin.Context) {
+	todos, err := getAllTodos()
+
+	if err != nil {
+		c.HTML(http.StatusOK, "index.html", nil)
+	}
+
+	c.HTML(http.StatusOK, "index.html", gin.H{
+		"todos": todos,
+	})
 }
 
-func postAlbums(c *gin.Context) {
-	var newAlbum album
-	
-	if err := c.BindJSON(&newAlbum); err != nil {
+func postAddTodo(c *gin.Context) {
+	createNewTodoQuery, err := loadQuery("createNewTodo.sql")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load query"})
 		return
 	}
 
-	albums = append(albums, newAlbum)
+	todo := c.PostForm("title");
 
-	c.IndentedJSON(http.StatusCreated, newAlbum)
-}
-
-func getAlbumByID(c *gin.Context) {
-	id := c.Param("id")
-
-	for _,a := range albums {
-		if a.ID == id {
-			c.IndentedJSON(http.StatusOK, a)
-			return
-		}
+	_, err = db.Exec(createNewTodoQuery, false, todo)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create todo"})
+		return
 	}
 
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+	todoHTML := "<p class='todo'>" + todo + "</p>"
+
+	c.String(http.StatusOK, todoHTML);
+}
+
+func putTodoById(c *gin.Context) {
+	todoId := c.Param("id")
+
+	updateTodoByIdQuery, err := loadQuery("updateTodoById.sql")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load query"})
+		return
+	}
+
+	result, err := db.Exec(updateTodoByIdQuery, true, "Update", todoId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update todo"})
+		return
+	}
+	
+	fmt.Println(result)
+}
+
+func deleteTodoById(c *gin.Context) {
+	todoId := c.Param("id")
+
+	deleteTodoByIdQuery, err := loadQuery("deleteTodoById.sql")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load query"})
+		return
+	}
+
+	result, err := db.Exec(deleteTodoByIdQuery, todoId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete todo"})
+		return
+	}
+
+	fmt.Println(result)
+}
+
+func loadQuery(filename string) (string, error) {
+	query, err := os.ReadFile("./sql/" + filename)
+	if err != nil {
+		return "", err
+	}
+	return string(query), nil
+}
+
+func getAllTodos() ([]Todo, error) {
+	getAllTodosQuery, err := loadQuery("getAllTodos.sql")
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.Query(getAllTodosQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	var todos []Todo
+
+	for rows.Next() {
+		var todo Todo
+		rows.Scan(&todo.ID, &todo.CreatedAt, &todo.UpdatedAt, &todo.Complete, &todo.Title)
+		todos = append(todos, todo)
+	}
+
+	return todos, nil
 }
