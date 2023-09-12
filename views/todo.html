@@ -1,0 +1,11 @@
+<div class="todo-item {{if .Complete}}completed{{end}}" id="todo-item-{{ .ID }}">
+    <p hx-put="/todos/{{ .ID }}" hx-vals='{
+        "id": "{{ .ID }}",
+        "complete": "{{ .Complete }}",
+        "title": "{{ .Title }}"
+    }' hx-swap="outerHTML" hx-target="#todo-item-{{ .ID }}">
+        {{ .Title }}
+    </p>
+
+    <button hx-delete="/todos/{{ .ID }}" hx-swap="outerHTML" hx-target="#todo-item-{{ .ID }}">X</button>
+</div>

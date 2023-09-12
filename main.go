@@ -11,36 +11,23 @@ import (
 )
 
 type Todo struct {
-	ID int `json:"id"`
-	CreatedAt string
-	UpdatedAt string
-	Title string `json:"title"`
-	Complete bool `json:"complete"`
+	ID          int64    `form:"id"`
+	CreatedAt   string
+	UpdatedAt   string
+	Title       string   `form:"title"`
+	Complete    bool     `form:"complete"`
 }
 
 var db *sql.DB
 
 func main() {
-	var err error
-	db, err = sql.Open("sqlite3", "todos.db")
-	if err != nil {
-		panic(err)
-	}
+	dbSetup()
 	defer db.Close()
-
-	createTodosTableQuery, err := loadQuery("createTable.sql");
-	if err != nil {
-		panic(err)
-	}
-
-	_, err = db.Exec(createTodosTableQuery)
-	if err != nil {
-		panic(err)
-	}
+	dbTablesSetup()
 
 	r := gin.Default()
 	r.LoadHTMLGlob("views/*")
-	r.Static("/public", "./public");
+	r.Static("/public", "./public")
 
 	r.GET("/", getIndex)
 	r.POST("/todos", postAddTodo)
@@ -54,50 +41,77 @@ func getIndex(c *gin.Context) {
 	todos, err := getAllTodos()
 
 	if err != nil {
-		c.HTML(http.StatusOK, "index.html", nil)
+		c.HTML(http.StatusOK, "error.html", gin.H{
+			"message": err.Error(),
+		})
 	}
 
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"todos": todos,
+		"count": len(todos),
 	})
 }
 
 func postAddTodo(c *gin.Context) {
 	createNewTodoQuery, err := loadQuery("createNewTodo.sql")
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load query"})
 		return
 	}
 
-	todo := c.PostForm("title");
+	var todo Todo;
 
-	_, err = db.Exec(createNewTodoQuery, false, todo)
+	err = c.Bind(&todo);
 	if err != nil {
+		fmt.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed bind todo"})
+		return
+	}
+
+	result, err := db.Exec(createNewTodoQuery, false, todo.Title)
+	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create todo"})
 		return
 	}
 
-	todoHTML := "<p class='todo'>" + todo + "</p>"
+	todo.Complete = false
+	todoId, _ := result.LastInsertId()
+	todo.ID = todoId
 
-	c.String(http.StatusOK, todoHTML);
+	c.HTML(http.StatusCreated, "todo.html", todo)
 }
 
 func putTodoById(c *gin.Context) {
 	todoId := c.Param("id")
 
+	var todo Todo;
+
+	err := c.Bind(&todo);
+	if err != nil {
+		fmt.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed parse todo data"})
+		return
+	}
+
 	updateTodoByIdQuery, err := loadQuery("updateTodoById.sql")
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load query"})
 		return
 	}
 
-	result, err := db.Exec(updateTodoByIdQuery, true, "Update", todoId)
+	_, err = db.Exec(updateTodoByIdQuery, !todo.Complete, todo.Title, todoId)
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update todo"})
 		return
 	}
-	
-	fmt.Println(result)
+
+	todo.Complete = !todo.Complete
+
+	c.HTML(http.StatusCreated, "todo.html", todo)
 }
 
 func deleteTodoById(c *gin.Context) {
@@ -105,17 +119,17 @@ func deleteTodoById(c *gin.Context) {
 
 	deleteTodoByIdQuery, err := loadQuery("deleteTodoById.sql")
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load query"})
 		return
 	}
 
-	result, err := db.Exec(deleteTodoByIdQuery, todoId)
+	_, err = db.Exec(deleteTodoByIdQuery, todoId)
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete todo"})
 		return
 	}
-
-	fmt.Println(result)
 }
 
 func loadQuery(filename string) (string, error) {
@@ -146,4 +160,24 @@ func getAllTodos() ([]Todo, error) {
 	}
 
 	return todos, nil
+}
+
+func dbSetup() {
+	var err error	
+	db, err = sql.Open("sqlite3", "todos.db")
+	if err != nil {
+		panic(err)
+	}
+}
+
+func dbTablesSetup() {
+	createTodosTableQuery, err := loadQuery("createTable.sql")
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createTodosTableQuery)
+	if err != nil {
+		panic(err)
+	}
 }

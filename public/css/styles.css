@@ -37,10 +37,32 @@
 .todo-list {
     max-width: 400px;
     margin: auto;
-    background-color: #f4f4f4;
-    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.todo-item {
+    padding: 0 1rem 0 0;
+    background-color: gray;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    &.completed {
+        background-color: green;
+        text-decoration: line-through;
+    }
 
     & p {
-        padding: 8px 0;
+        padding: 8px 0 8px 1rem;
+        flex: 1;
+        cursor: pointer;
+    }
+
+    & button {
+        padding: 0 3px;
+        cursor: pointer;
     }
 }
